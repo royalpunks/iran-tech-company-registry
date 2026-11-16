@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this dataset, please cite it as below."
+type: dataset
+title: "Tehran Index Company Registry: Iran's private technology companies"
+authors:
+  - name: "Tehran Index"
+    website: "https://tehranindex.com"
+doi: 10.5281/zenodo.23323792
+url: "https://tehranindex.com/companies"
+license: CC-BY-NC-4.0
+keywords: [Iran, technology companies, startups, digital economy, company registry, fintech, e-commerce]
