@@ -1,0 +1,41 @@
+name: Refresh from the Zenodo deposit
+# Copies the newest version of the Zenodo deposit (concept DOI 10.5281/zenodo.23323792) here
+# the day after Tehran Index refreshes it. No secret: Zenodo is public, the job writes only here.
+on:
+  schedule:
+    - cron: "20 7 6 * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the newest version
+        run: |
+          python3 - <<'PY'
+          import csv, io, json, sys, urllib.request
+          NAME = "tehran-index-company-registry.csv"
+          def get(url):
+              req = urllib.request.Request(url, headers={"User-Agent": "TehranIndex-RegistryMirror/1.0 (desk@tehranindex.com)"})
+              return urllib.request.urlopen(req, timeout=60).read()
+          hits = json.loads(get("https://zenodo.org/api/records?q=conceptrecid:23323792&sort=mostrecent&size=1"))["hits"]["hits"]
+          if not hits: sys.exit("Zenodo returned no record. Nothing changed.")
+          rec = hits[0]
+          files = [f for f in rec.get("files", []) if f.get("key") == NAME]
+          if not files: sys.exit("The newest version holds no CSV. Nothing changed.")
+          body = get(files[0]["links"]["self"])
+          rows = list(csv.reader(io.StringIO(body.decode("utf-8"))))
+          if len(rows) < 301 or rows[0][0] != "record_url": sys.exit(f"The file looks wrong ({len(rows) - 1} rows). Nothing changed.")
+          open(NAME, "wb").write(body)
+          open("VERSION", "w").write(f"version: {rec['metadata'].get('version')}\nrows: {len(rows) - 1}\ndoi: {rec.get('doi')}\n")
+          print(f"OK: {len(rows) - 1} rows, DOI {rec.get('doi')}")
+          PY
+      - name: Commit if it changed
+        run: |
+          git config user.name "Tehran Index Desk"
+          git config user.email "desk@tehranindex.com"
+          git add tehran-index-company-registry.csv VERSION
+          if git diff --cached --quiet; then echo "No change: already the newest version."; else git commit -m "Registry list: $(tr '\n' ' ' < VERSION)" && git push && echo "Pushed: $(tr '\n' ' ' < VERSION)"; fi
